@@ -4,89 +4,89 @@ from django.urls import reverse
 from django.http import JsonResponse
 
 
-def xuyao_kanche(chuli_hanshu):
-    """需要勘察员装饰器"""
-    @wraps(chuli_hanshu)
-    def baozhuang_hanshu(qingqiu, *args, **kwargs):
-        if not hasattr(qingqiu, 'kanche'):
-            if qingqiu.headers.get('X-Requested-With') == 'XMLHttpRequest':
+def require_surveyor(handler_func):
+    """Require surveyor decorator"""
+    @wraps(handler_func)
+    def wrapper_func(request, *args, **kwargs):
+        if not hasattr(request, 'surveyor'):
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
-                    'zhuangtai_ma': 'queshao_kanche',
-                    'tishi_xinxi': '缺少勘察员信息'
+                    'status_code': 'missing_surveyor',
+                    'message': 'Missing surveyor information'
                 }, status=401)
-            return redirect(reverse('denglu_xianshi'))
-        return chuli_hanshu(qingqiu, *args, **kwargs)
-    return baozhuang_hanshu
+            return redirect(reverse('login_display'))
+        return handler_func(request, *args, **kwargs)
+    return wrapper_func
 
 
-def jiancha_juese(*juese_daima_list):
-    """检查角色装饰器"""
-    def zhuangshiqi(chuli_hanshu):
-        @wraps(chuli_hanshu)
-        def baozhuang_hanshu(qingqiu, *args, **kwargs):
-            kanche = getattr(qingqiu, 'kanche', None)
-            if not kanche:
+def check_role(*role_code_list):
+    """Check role decorator"""
+    def decorator(handler_func):
+        @wraps(handler_func)
+        def wrapper_func(request, *args, **kwargs):
+            surveyor = getattr(request, 'surveyor', None)
+            if not surveyor:
                 return JsonResponse({
-                    'zhuangtai_ma': 'wukanche',
-                    'tishi_xinxi': '无勘察员对象'
+                    'status_code': 'no_surveyor',
+                    'message': 'No surveyor object'
                 }, status=401)
             
-            huodong_juese = kanche.juese_guanlian.filter(qiyong_zhuangtai=234)
-            juese_daima_jh = [juese.juese_daima for juese in huodong_juese]
+            active_roles = surveyor.role_relation.filter(enabled_status=234)
+            role_codes = [role.role_code for role in active_roles]
             
-            pipei_chenggong = any(daima in juese_daima_jh for daima in juese_daima_list)
+            match_success = any(code in role_codes for code in role_code_list)
             
-            if not pipei_chenggong:
+            if not match_success:
                 return JsonResponse({
-                    'zhuangtai_ma': 'quanxian_buzu',
-                    'tishi_xinxi': '权限不足'
+                    'status_code': 'insufficient_permission',
+                    'message': 'Insufficient permission'
                 }, status=403)
             
-            return chuli_hanshu(qingqiu, *args, **kwargs)
-        return baozhuang_hanshu
-    return zhuangshiqi
+            return handler_func(request, *args, **kwargs)
+        return wrapper_func
+    return decorator
 
 
-def jiancha_daohang(daohang_bianma):
-    """检查导航装饰器"""
-    def zhuangshiqi(chuli_hanshu):
-        @wraps(chuli_hanshu)
-        def baozhuang_hanshu(qingqiu, *args, **kwargs):
-            kanche = getattr(qingqiu, 'kanche', None)
-            if not kanche:
+def check_navigation(navigation_code):
+    """Check navigation decorator"""
+    def decorator(handler_func):
+        @wraps(handler_func)
+        def wrapper_func(request, *args, **kwargs):
+            surveyor = getattr(request, 'surveyor', None)
+            if not surveyor:
                 return JsonResponse({
-                    'zhuangtai_ma': 'wukanche',
-                    'tishi_xinxi': '无勘察员对象'
+                    'status_code': 'no_surveyor',
+                    'message': 'No surveyor object'
                 }, status=401)
             
-            youquan_fangwen = False
-            for juese in kanche.juese_guanlian.filter(qiyong_zhuangtai=234):
-                if juese.daohang_guanlian.filter(
-                    daohang_bianma=daohang_bianma,
-                    xianshi_zhuangtai=145
+            has_permission = False
+            for role in surveyor.role_relation.filter(enabled_status=234):
+                if role.navigation_relation.filter(
+                    navigation_code=navigation_code,
+                    display_status=145
                 ).exists():
-                    youquan_fangwen = True
+                    has_permission = True
                     break
             
-            if not youquan_fangwen:
+            if not has_permission:
                 return JsonResponse({
-                    'zhuangtai_ma': 'daohang_jujue',
-                    'tishi_xinxi': f'导航被拒: {daohang_bianma}'
+                    'status_code': 'navigation_denied',
+                    'message': f'Navigation denied: {navigation_code}'
                 }, status=403)
             
-            return chuli_hanshu(qingqiu, *args, **kwargs)
-        return baozhuang_hanshu
-    return zhuangshiqi
+            return handler_func(request, *args, **kwargs)
+        return wrapper_func
+    return decorator
 
 
-def zhiyun_ajax(chuli_hanshu):
-    """只允许AJAX装饰器"""
-    @wraps(chuli_hanshu)
-    def baozhuang_hanshu(qingqiu, *args, **kwargs):
-        if qingqiu.headers.get('X-Requested-With') != 'XMLHttpRequest':
+def ajax_only(handler_func):
+    """Ajax only decorator"""
+    @wraps(handler_func)
+    def wrapper_func(request, *args, **kwargs):
+        if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
             return JsonResponse({
-                'zhuangtai_ma': 'feiajax',
-                'tishi_xinxi': '非AJAX请求'
+                'status_code': 'not_ajax',
+                'message': 'Not an AJAX request'
             }, status=400)
-        return chuli_hanshu(qingqiu, *args, **kwargs)
-    return baozhuang_hanshu
+        return handler_func(request, *args, **kwargs)
+    return wrapper_func

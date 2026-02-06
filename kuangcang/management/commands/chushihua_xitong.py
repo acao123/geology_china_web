@@ -1,103 +1,103 @@
 from django.core.management.base import BaseCommand
-from kuangcang.models import Kanche, Juese, Daohang
+from kuangcang.models import Surveyor, Role, Navigation
 
 
 class Command(BaseCommand):
-    help = '初始化矿藏系统数据'
+    help = 'Initialize mine system data'
     
     def handle(self, *args, **options):
-        self.stdout.write('开始初始化矿藏系统...')
+        self.stdout.write('Starting mine system initialization...')
         
-        # 创建导航
-        self.stdout.write('创建导航结构...')
-        xitong_guanli = Daohang.objects.create(
-            daohang_bianma='xitong_guanli',
-            daohang_biaoti='系统管理',
-            leixing_xuanze='mulu',
-            tubiao_yangshi='layui-icon-set',
-            paixu_haoma=10,
-            xianshi_zhuangtai=145
+        # Create navigation
+        self.stdout.write('Creating navigation structure...')
+        system_management = Navigation.objects.create(
+            navigation_code='system_management',
+            navigation_title='System Management',
+            type_choice='mulu',
+            icon_style='layui-icon-set',
+            sort_order=10,
+            display_status=145
         )
         
-        Daohang.objects.create(
-            daohang_bianma='kanche_guanli',
-            daohang_biaoti='勘察员管理',
-            leixing_xuanze='caidian',
-            fuji_daohang=xitong_guanli,
-            luyou_dizhi='/kanche/liebiao/',
-            tubiao_yangshi='layui-icon-user',
-            paixu_haoma=1,
-            xianshi_zhuangtai=145
+        Navigation.objects.create(
+            navigation_code='surveyor_management',
+            navigation_title='Surveyor Management',
+            type_choice='caidian',
+            parent_navigation=system_management,
+            route_path='/surveyor/list/',
+            icon_style='layui-icon-user',
+            sort_order=1,
+            display_status=145
         )
         
-        Daohang.objects.create(
-            daohang_bianma='juese_guanli',
-            daohang_biaoti='角色管理',
-            leixing_xuanze='caidian',
-            fuji_daohang=xitong_guanli,
-            luyou_dizhi='/juese/liebiao/',
-            tubiao_yangshi='layui-icon-group',
-            paixu_haoma=2,
-            xianshi_zhuangtai=145
+        Navigation.objects.create(
+            navigation_code='role_management',
+            navigation_title='Role Management',
+            type_choice='caidian',
+            parent_navigation=system_management,
+            route_path='/role/list/',
+            icon_style='layui-icon-group',
+            sort_order=2,
+            display_status=145
         )
         
-        Daohang.objects.create(
-            daohang_bianma='daohang_guanli',
-            daohang_biaoti='导航管理',
-            leixing_xuanze='caidian',
-            fuji_daohang=xitong_guanli,
-            luyou_dizhi='/daohang/liebiao/',
-            tubiao_yangshi='layui-icon-template',
-            paixu_haoma=3,
-            xianshi_zhuangtai=145
+        Navigation.objects.create(
+            navigation_code='navigation_management',
+            navigation_title='Navigation Management',
+            type_choice='caidian',
+            parent_navigation=system_management,
+            route_path='/navigation/list/',
+            icon_style='layui-icon-template',
+            sort_order=3,
+            display_status=145
         )
         
-        # 创建角色
-        self.stdout.write('创建角色...')
-        chaoji_guanliyuan = Juese.objects.create(
-            juese_daima='CHAOJI_GUANLIYUAN',
-            juese_mingcheng='超级管理员',
-            dengji_shuzhi=1,
-            qiyong_zhuangtai=234
+        # Create roles
+        self.stdout.write('Creating roles...')
+        super_admin = Role.objects.create(
+            role_code='SUPER_ADMIN',
+            role_name='Super Administrator',
+            level_value=1,
+            enabled_status=234
         )
         
-        quanxian_daohang = Daohang.objects.all()
-        chaoji_guanliyuan.daohang_guanlian.set(quanxian_daohang)
+        all_navigation = Navigation.objects.all()
+        super_admin.navigation_relation.set(all_navigation)
         
-        putong_yonghu = Juese.objects.create(
-            juese_daima='PUTONG_YONGHU',
-            juese_mingcheng='普通用户',
-            dengji_shuzhi=100,
-            qiyong_zhuangtai=234
+        regular_user = Role.objects.create(
+            role_code='REGULAR_USER',
+            role_name='Regular User',
+            level_value=100,
+            enabled_status=234
         )
         
-        # 创建超级管理员账户
-        self.stdout.write('创建超级管理员账户...')
-        admin_kanche = Kanche.objects.create(
-            denglu_biaoshi='admin',
-            mingcheng_xianshi='系统管理员',
-            lianxi_dianhua='13800138000',
-            dianzi_youjian='admin@dizhi.com',
-            huodong_zhuangtai=168
+        # Create super admin account
+        self.stdout.write('Creating super admin account...')
+        admin_surveyor = Surveyor.objects.create(
+            login_identifier='admin',
+            display_name='System Administrator',
+            contact_phone='13800138000',
+            email_address='admin@geology.com',
+            activity_status=168
         )
-        admin_kanche.shezhi_mima('admin888')
-        admin_kanche.save()
-        admin_kanche.juese_guanlian.add(chaoji_guanliyuan)
+        admin_surveyor.set_password('admin888')
+        admin_surveyor.save()
+        admin_surveyor.role_relation.add(super_admin)
         
-        # 创建测试用户
-        self.stdout.write('创建测试用户...')
-        test_kanche = Kanche.objects.create(
-            denglu_biaoshi='test',
-            mingcheng_xianshi='测试勘察员',
-            lianxi_dianhua='13900139000',
-            dianzi_youjian='test@dizhi.com',
-            huodong_zhuangtai=168
+        # Create test user
+        self.stdout.write('Creating test user...')
+        test_surveyor = Surveyor.objects.create(
+            login_identifier='test',
+            display_name='Test Surveyor',
+            contact_phone='13900139000',
+            email_address='test@geology.com',
+            activity_status=168
         )
-        test_kanche.shezhi_mima('test123')
-        test_kanche.save()
-        test_kanche.juese_guanlian.add(putong_yonghu)
+        test_surveyor.set_password('test123')
+        test_surveyor.save()
+        test_surveyor.role_relation.add(regular_user)
         
-        self.stdout.write(self.style.SUCCESS('✓ 初始化完成!'))
-        self.stdout.write('默认账户:')
-        self.stdout.write('  管理员 - 账号: admin, 密码: admin888')
-        self.stdout.write('  测试员 - 账号: test, 密码: test123')
+        self.stdout.write(self.style.SUCCESS('✓ Initialization complete!'))
+        self.stdout.write('Default accounts:')
+        self.stdout.write('  Admin - Login: admin, Password: admin888')
+        self.stdout.write('  Test  - Login: test, Password: test123')
