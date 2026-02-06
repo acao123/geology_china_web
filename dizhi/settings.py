@@ -48,9 +48,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'kuangcang.baohu.renzheng_baohu.RenzhengBaohuzhao',
-    'kuangcang.baohu.renzheng_baohu.QuanxianJianhuqi',
-    'kuangcang.baohu.renzheng_baohu.CaozuoJiluqi',
+    'kuangcang.middleware.auth_middleware.AuthProtectionMiddleware',
+    'kuangcang.middleware.auth_middleware.PermissionGuardMiddleware',
+    'kuangcang.middleware.auth_middleware.OperationLoggerMiddleware',
 ]
 
 ROOT_URLCONF = 'dizhi.urls'
