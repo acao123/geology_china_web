@@ -158,10 +158,10 @@ def my_view(request):
 
 ## 📋 技术栈
 
-- Django 4.2.9
+- Django 4.2.26 (安全补丁版本)
 - Python 3.8+
-- Pillow 10.1.0
-- PyMySQL 1.1.0
+- Pillow 10.3.0 (安全补丁版本)
+- PyMySQL 1.1.1 (安全补丁版本)
 - Layui 2.8.18
 
 ## 🌟 系统亮点
