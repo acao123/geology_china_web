@@ -5,41 +5,41 @@ from django.http import JsonResponse
 
 
 def require_surveyor(handler_func):
-    """需要勘察员装饰器"""
+    """Require surveyor decorator"""
     @wraps(handler_func)
     def wrapper_func(request, *args, **kwargs):
-        if not hasattr(request, 'kanche'):
+        if not hasattr(request, 'surveyor'):
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
                     'status_code': 'missing_surveyor',
-                    'message': '缺少勘察员信息'
+                    'message': 'Missing surveyor information'
                 }, status=401)
-            return redirect(reverse('denglu_xianshi'))
+            return redirect(reverse('login_display'))
         return handler_func(request, *args, **kwargs)
     return wrapper_func
 
 
 def check_role(*role_code_list):
-    """检查角色装饰器"""
+    """Check role decorator"""
     def decorator(handler_func):
         @wraps(handler_func)
         def wrapper_func(request, *args, **kwargs):
-            surveyor = getattr(request, 'kanche', None)
-            if not kanche:
+            surveyor = getattr(request, 'surveyor', None)
+            if not surveyor:
                 return JsonResponse({
                     'status_code': 'no_surveyor',
-                    'message': '无勘察员对象'
+                    'message': 'No surveyor object'
                 }, status=401)
             
             active_roles = surveyor.role_relation.filter(enabled_status=234)
-            role_code_set = [role.juese_daima for role in huodong_juese]
+            role_code_set = [role.role_code for role in active_roles]
             
-            match_success = any(code in juese_daima_jh for code in role_code_list)
+            match_success = any(code in role_code_set for code in role_code_list)
             
-            if not pipei_chenggong:
+            if not match_success:
                 return JsonResponse({
                     'status_code': 'insufficient_permission',
-                    'message': '权限不足'
+                    'message': 'Insufficient permission'
                 }, status=403)
             
             return handler_func(request, *args, **kwargs)
@@ -48,15 +48,15 @@ def check_role(*role_code_list):
 
 
 def check_navigation(navigation_code):
-    """检查导航装饰器"""
+    """Check navigation decorator"""
     def decorator(handler_func):
         @wraps(handler_func)
         def wrapper_func(request, *args, **kwargs):
-            surveyor = getattr(request, 'kanche', None)
-            if not kanche:
+            surveyor = getattr(request, 'surveyor', None)
+            if not surveyor:
                 return JsonResponse({
                     'status_code': 'no_surveyor',
-                    'message': '无勘察员对象'
+                    'message': 'No surveyor object'
                 }, status=401)
             
             has_permission = False
@@ -68,10 +68,10 @@ def check_navigation(navigation_code):
                     has_permission = True
                     break
             
-            if not youquan_fangwen:
+            if not has_permission:
                 return JsonResponse({
                     'status_code': 'navigation_denied',
-                    'message': f'导航被拒: {navigation_code}'
+                    'message': f'Navigation denied: {navigation_code}'
                 }, status=403)
             
             return handler_func(request, *args, **kwargs)
@@ -80,13 +80,13 @@ def check_navigation(navigation_code):
 
 
 def ajax_only(handler_func):
-    """只允许AJAX装饰器"""
+    """Ajax only decorator"""
     @wraps(handler_func)
     def wrapper_func(request, *args, **kwargs):
         if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
             return JsonResponse({
                 'status_code': 'not_ajax',
-                'message': '非AJAX请求'
+                'message': 'Not an AJAX request'
             }, status=400)
         return handler_func(request, *args, **kwargs)
     return wrapper_func

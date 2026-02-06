@@ -11,32 +11,32 @@ import json
 
 
 def login_display(request):
-    """登录显示页面"""
+    """Login display page"""
     if request.session.get('surveyor_id'):
-        return redirect(reverse('zhongxin_xianshi'))
-    return render(request, 'denglu/xianshi.html')
+        return redirect(reverse('center_display'))
+    return render(request, 'login/display.html')
 
 
 @require_http_methods(["POST"])
 def login_submit(request):
-    """登录提交处理"""
-    login_identifier = request.POST.get('denglu_biaoshi', '').strip()
-    password_content = request.POST.get('mima_neirong', '').strip()
-    captcha_input = request.POST.get('yanzhengma_shuru', '').strip().upper()
+    """Login submission handler"""
+    login_identifier = request.POST.get('login_identifier', '').strip()
+    password_content = request.POST.get('password', '').strip()
+    captcha_input = request.POST.get('captcha', '').strip().upper()
     
     session_captcha = request.session.get('captcha_code', '').upper()
     if not session_captcha or captcha_input != session_captcha:
         return JsonResponse({
-            'status_code': 'yanzhengma_cuowu',
-            'message': '验证码输入错误'
+            'status_code': 'captcha_error',
+            'message': 'Captcha verification failed'
         })
     
     request.session.pop('captcha_code', None)
     
     if not login_identifier or not password_content:
         return JsonResponse({
-            'status_code': 'xinxi_buquan',
-            'message': '登录信息不完整'
+            'status_code': 'incomplete_info',
+            'message': 'Login information incomplete'
         })
     
     try:
@@ -44,14 +44,14 @@ def login_submit(request):
         
         if not surveyor_obj.is_active():
             return JsonResponse({
-                'status_code': 'zhanghu_fengjie',
-                'message': '账户已被封存'
+                'status_code': 'account_archived',
+                'message': 'Account has been archived'
             })
         
         if not surveyor_obj.verify_password(password_content):
             return JsonResponse({
-                'status_code': 'mima_cuowu',
-                'message': '密码验证失败'
+                'status_code': 'password_error',
+                'message': 'Password verification failed'
             })
         
         surveyor_obj.last_login = datetime.now()
@@ -61,26 +61,26 @@ def login_submit(request):
         request.session['surveyor_name'] = surveyor_obj.display_name
         
         return JsonResponse({
-            'status_code': 'denglu_chenggong',
-            'message': '登录成功',
-            'redirect_url': reverse('zhongxin_xianshi')
+            'status_code': 'login_success',
+            'message': 'Login successful',
+            'redirect_url': reverse('center_display')
         })
         
     except Surveyor.DoesNotExist:
         return JsonResponse({
-            'status_code': 'yonghu_bucunzai',
-            'message': '用户档案不存在'
+            'status_code': 'user_not_found',
+            'message': 'User profile does not exist'
         })
 
 
 def login_logout(request):
-    """登录离开处理"""
+    """Logout handler"""
     request.session.flush()
-    return redirect(reverse('denglu_xianshi'))
+    return redirect(reverse('login_display'))
 
 
 def login_captcha(request):
-    """登录验证码生成"""
+    """Login captcha generation"""
     byte_data, captcha_text = create_captcha()
     request.session['captcha_code'] = captcha_text
     return HttpResponse(byte_data, content_type='image/png')
@@ -88,176 +88,176 @@ def login_captcha(request):
 
 @require_surveyor
 def center_display(request):
-    """中心显示页面"""
+    """Center display page"""
     surveyor = request.surveyor
     
     stats_data = {
-        'kanche_shuliang': Surveyor.objects.filter(activity_status=168).count(),
-        'juese_shuliang': Role.objects.filter(enabled_status=234).count(),
-        'navigation_treeliang': Navigation.objects.filter(display_status=145).count(),
-        'zuijin_caozuo': Operation.objects.all()[:10]
+        'surveyor_count': Surveyor.objects.filter(activity_status=168).count(),
+        'role_count': Role.objects.filter(enabled_status=234).count(),
+        'navigation_count': Navigation.objects.filter(display_status=145).count(),
+        'recent_operations': Operation.objects.all()[:10]
     }
     
-    navigation_treeju = build_surveyor_navigation(kanche)
+    navigation_tree = build_surveyor_navigation(surveyor)
     
     context = {
-        'kanche': kanche,
-        'stats_data': tongji_shuju,
-        'navigation_treeju': navigation_treeju
+        'surveyor': surveyor,
+        'stats_data': stats_data,
+        'navigation_tree': navigation_tree
     }
     
-    return render(request, 'zhongxin/xianshi.html', context)
+    return render(request, 'center/display.html', context)
 
 
-def build_surveyor_navigation(kanche):
-    """构建勘察员导航树"""
+def build_surveyor_navigation(surveyor):
+    """Build surveyor navigation tree"""
     navigation_id_set = set()
-    for juese in surveyor.role_relation.filter(enabled_status=234):
+    for role in surveyor.role_relation.filter(enabled_status=234):
         navigation_id_set.update(
-            juese.navigation_relation.filter(display_status=145).values_list('daohang_bianhao', flat=True)
+            role.navigation_relation.filter(display_status=145).values_list('navigation_id', flat=True)
         )
     
-    navigation_list = Navigation.objects.filter(daohang_bianhao__in=navigation_id_set).order_by('paixu_haoma')
+    navigation_list = Navigation.objects.filter(navigation_id__in=navigation_id_set).order_by('sort_order')
     
     navigation_tree = []
-    navigation_dict = {dh.navigation_id: dh for nav in navigation_list}
+    navigation_dict = {nav.navigation_id: nav for nav in navigation_list}
     
-    for daohang in navigation_list:
-        if not daohang.parent_navigation:
-            navigation_tree.append(build_navigation_node(daohang, navigation_dict))
+    for nav in navigation_list:
+        if not nav.parent_navigation:
+            navigation_tree.append(build_navigation_node(nav, navigation_dict))
     
     return navigation_tree
 
 
-def build_navigation_node(daohang, navigation_dict):
-    """构建导航节点"""
+def build_navigation_node(nav, navigation_dict):
+    """Build navigation node"""
     node = {
-        'id': daohang.navigation_id,
-        'code': daohang.navigation_code,
-        'title': daohang.navigation_title,
-        'type': daohang.type_choice,
-        'route': daohang.route_path,
-        'icon': daohang.icon_style,
-        'zinode': []
+        'id': nav.navigation_id,
+        'code': nav.navigation_code,
+        'title': nav.navigation_title,
+        'type': nav.type_choice,
+        'route': nav.route_path,
+        'icon': nav.icon_style,
+        'children': []
     }
     
-    for nav in navigation_dict.values():
-        if dh.parent_navigation and dh.parent_navigation.navigation_id == daohang.navigation_id:
-            node['zinode'].append(build_navigation_node(dh, navigation_dict))
+    for child in navigation_dict.values():
+        if child.parent_navigation and child.parent_navigation.navigation_id == nav.navigation_id:
+            node['children'].append(build_navigation_node(child, navigation_dict))
     
-    return jiedian
+    return node
 
 
 @require_surveyor
 def surveyor_list(request):
-    """勘察员列表页面"""
-    return render(request, 'kanche/liebiao.html')
+    """Surveyor list page"""
+    return render(request, 'surveyor/list.html')
 
 
 @require_surveyor
 def surveyor_datalist(request):
-    """勘察员数据流"""
+    """Surveyor data list"""
     page_num = int(request.GET.get('page', 1))
     per_page = int(request.GET.get('limit', 10))
     search_query = request.GET.get('search', '').strip()
     
     query_filter = Q()
-    if sousuo_neirong:
-        chaxun_tiaojian &= Q(login_identifier__icontains=sousuo_neirong) | Q(mingcheng_xianshi__icontains=sousuo_neirong)
+    if search_query:
+        query_filter &= Q(login_identifier__icontains=search_query) | Q(display_name__icontains=search_query)
     
-    surveyor_set = Surveyor.objects.filter(chaxun_tiaojian)
+    surveyor_set = Surveyor.objects.filter(query_filter)
     total = surveyor_set.count()
     
-    start_pos = (yema_haoma - 1) * meiyet_shuliang
-    end_pos = kaishi_weizhi + meiyet_shuliang
-    surveyor_set = surveyor_set[kaishi_weizhi:jieshu_weizhi]
+    start_pos = (page_num - 1) * per_page
+    end_pos = start_pos + per_page
+    surveyor_set = surveyor_set[start_pos:end_pos]
     
     data_list = []
     for surveyor in surveyor_set:
-        juese_liebiao = [role.role_name for role in kc.role_relation.all()]
+        role_list = [role.role_name for role in surveyor.role_relation.all()]
         data_list.append({
-            'surveyor_id': kc.surveyor_id,
-            'login_identifier': kc.login_identifier,
-            'display_name': kc.display_name,
-            'contact_phone': kc.contact_phone or '',
-            'email_address': kc.email_address or '',
-            'activity_status': kc.activity_status,
-            'status_text': '活跃勘察' if kc.activity_status == 168 else '休眠封存',
-            'role_list': ', '.join(juese_liebiao),
-            'created_at': kc.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'surveyor_id': surveyor.surveyor_id,
+            'login_identifier': surveyor.login_identifier,
+            'display_name': surveyor.display_name,
+            'contact_phone': surveyor.contact_phone or '',
+            'email_address': surveyor.email_address or '',
+            'activity_status': surveyor.activity_status,
+            'status_text': 'Active Surveyor' if surveyor.activity_status == 168 else 'Archived',
+            'role_list': ', '.join(role_list),
+            'created_at': surveyor.created_at.strftime('%Y-%m-%d %H:%M:%S'),
         })
     
-    return JsonResponse({'code': 0, 'msg': '', 'count': zongshu, 'data': data_list})
+    return JsonResponse({'code': 0, 'msg': '', 'count': total, 'data': data_list})
 
 
 @require_surveyor
 @require_http_methods(["POST"])
 def surveyor_create(request):
-    """勘察员创建"""
+    """Surveyor creation"""
     try:
-        login_identifier = request.POST.get('denglu_biaoshi', '').strip()
-        display_name = request.POST.get('mingcheng_xianshi', '').strip()
-        password_content = request.POST.get('mima_neirong', '').strip()
-        contact_phone = request.POST.get('lianxi_dianhua', '').strip()
-        email_address = request.POST.get('dianzi_youjian', '').strip()
-        role_id_list = request.POST.getlist('juese_id_list[]')
+        login_identifier = request.POST.get('login_identifier', '').strip()
+        display_name = request.POST.get('display_name', '').strip()
+        password_content = request.POST.get('password', '').strip()
+        contact_phone = request.POST.get('contact_phone', '').strip()
+        email_address = request.POST.get('email_address', '').strip()
+        role_id_list = request.POST.getlist('role_id_list[]')
         
-        if not login_identifier or not mingcheng_xianshi or not password_content:
+        if not login_identifier or not display_name or not password_content:
             return JsonResponse({
-                'status_code': 'shuju_buquan',
-                'message': '必填数据不完整'
+                'status_code': 'incomplete_data',
+                'message': 'Required data incomplete'
             })
         
         if Surveyor.objects.filter(login_identifier=login_identifier).exists():
             return JsonResponse({
-                'status_code': 'biaoshi_chongfu',
-                'message': '登录标识已被使用'
+                'status_code': 'identifier_duplicate',
+                'message': 'Login identifier already in use'
             })
         
         surveyor = Surveyor.objects.create(
             login_identifier=login_identifier,
-            display_name=mingcheng_xianshi,
-            lianxi_dianhua=lianxi_dianhua,
-            dianzi_youjian=dianzi_youjian,
+            display_name=display_name,
+            contact_phone=contact_phone,
+            email_address=email_address,
             activity_status=168
         )
         surveyor.set_password(password_content)
         surveyor.save()
         
         if role_id_list:
-            role_set = Role.objects.filter(juese_bianhao__in=role_id_list)
+            role_set = Role.objects.filter(role_id__in=role_id_list)
             surveyor.role_relation.set(role_set)
         
         return JsonResponse({
-            'status_code': 'chuangjian_chenggong',
-            'message': '勘察员创建成功'
+            'status_code': 'create_success',
+            'message': 'Surveyor created successfully'
         })
         
     except Exception as exception:
         return JsonResponse({
-            'status_code': 'chuangjian_shibai',
-            'message': f'创建失败: {str(exception)}'
+            'status_code': 'create_failed',
+            'message': f'Creation failed: {str(exception)}'
         })
 
 
 @require_surveyor
 @require_http_methods(["POST"])
-def surveyor_update(request, kanche_bianhao):
-    """勘察员修改"""
+def surveyor_update(request, surveyor_id):
+    """Surveyor update"""
     try:
-        surveyor = get_object_or_404(Surveyor, surveyor_id=kanche_bianhao)
+        surveyor = get_object_or_404(Surveyor, surveyor_id=surveyor_id)
         
-        display_name = request.POST.get('mingcheng_xianshi', '').strip()
-        contact_phone = request.POST.get('lianxi_dianhua', '').strip()
-        email_address = request.POST.get('dianzi_youjian', '').strip()
-        password_content = request.POST.get('mima_neirong', '').strip()
-        role_id_list = request.POST.getlist('juese_id_list[]')
-        activity_status = request.POST.get('huodong_zhuangtai', '168')
+        display_name = request.POST.get('display_name', '').strip()
+        contact_phone = request.POST.get('contact_phone', '').strip()
+        email_address = request.POST.get('email_address', '').strip()
+        password_content = request.POST.get('password', '').strip()
+        role_id_list = request.POST.getlist('role_id_list[]')
+        activity_status = request.POST.get('activity_status', '168')
         
-        surveyor.display_name = mingcheng_xianshi
-        surveyor.contact_phone = lianxi_dianhua
-        surveyor.email_address = dianzi_youjian
-        surveyor.activity_status = int(huodong_zhuangtai)
+        surveyor.display_name = display_name
+        surveyor.contact_phone = contact_phone
+        surveyor.email_address = email_address
+        surveyor.activity_status = int(activity_status)
         
         if password_content:
             surveyor.set_password(password_content)
@@ -265,372 +265,372 @@ def surveyor_update(request, kanche_bianhao):
         surveyor.save()
         
         if role_id_list:
-            role_set = Role.objects.filter(juese_bianhao__in=role_id_list)
+            role_set = Role.objects.filter(role_id__in=role_id_list)
             surveyor.role_relation.set(role_set)
         
         return JsonResponse({
-            'status_code': 'xiugai_chenggong',
-            'message': '勘察员修改成功'
+            'status_code': 'update_success',
+            'message': 'Surveyor updated successfully'
         })
         
     except Exception as exception:
         return JsonResponse({
-            'status_code': 'xiugai_shibai',
-            'message': f'修改失败: {str(exception)}'
+            'status_code': 'update_failed',
+            'message': f'Update failed: {str(exception)}'
         })
 
 
 @require_surveyor
 @require_http_methods(["POST"])
-def surveyor_delete(request, kanche_bianhao):
-    """勘察员删除"""
+def surveyor_delete(request, surveyor_id):
+    """Surveyor deletion"""
     try:
-        surveyor = get_object_or_404(Surveyor, surveyor_id=kanche_bianhao)
+        surveyor = get_object_or_404(Surveyor, surveyor_id=surveyor_id)
         
         if surveyor.surveyor_id == request.surveyor.surveyor_id:
             return JsonResponse({
-                'status_code': 'buneng_shanchu_ziji',
-                'message': '不能删除自己的账户'
+                'status_code': 'cannot_delete_self',
+                'message': 'Cannot delete your own account'
             })
         
         surveyor.delete()
         return JsonResponse({
-            'status_code': 'shanchu_chenggong',
-            'message': '勘察员删除成功'
+            'status_code': 'delete_success',
+            'message': 'Surveyor deleted successfully'
         })
         
     except Exception as exception:
         return JsonResponse({
-            'status_code': 'shanchu_shibai',
-            'message': f'删除失败: {str(exception)}'
+            'status_code': 'delete_failed',
+            'message': f'Deletion failed: {str(exception)}'
         })
 
 
 @require_surveyor
 def role_list(request):
-    """角色列表页面"""
-    return render(request, 'juese/liebiao.html')
+    """Role list page"""
+    return render(request, 'role/list.html')
 
 
 @require_surveyor
 def role_datalist(request):
-    """角色数据流"""
+    """Role data list"""
     page_num = int(request.GET.get('page', 1))
     per_page = int(request.GET.get('limit', 10))
     search_query = request.GET.get('search', '').strip()
     
     query_filter = Q()
-    if sousuo_neirong:
-        chaxun_tiaojian &= Q(juese_daima__icontains=sousuo_neirong) | Q(juese_mingcheng__icontains=sousuo_neirong)
+    if search_query:
+        query_filter &= Q(role_code__icontains=search_query) | Q(role_name__icontains=search_query)
     
-    role_set = Role.objects.filter(chaxun_tiaojian)
+    role_set = Role.objects.filter(query_filter)
     total = role_set.count()
     
-    start_pos = (yema_haoma - 1) * meiyet_shuliang
-    end_pos = kaishi_weizhi + meiyet_shuliang
-    role_set = role_set[kaishi_weizhi:jieshu_weizhi]
+    start_pos = (page_num - 1) * per_page
+    end_pos = start_pos + per_page
+    role_set = role_set[start_pos:end_pos]
     
     data_list = []
     for role in role_set:
-        daohang_liebiao = [nav.navigation_title for nav in js.navigation_relation.all()]
+        navigation_list = [nav.navigation_title for nav in role.navigation_relation.all()]
         data_list.append({
-            'role_id': js.role_id,
-            'role_code': js.role_code,
-            'role_name': js.role_name,
-            'level_value': js.level_value,
-            'enabled_status': js.enabled_status,
-            'status_text': '启用状态' if js.enabled_status == 234 else '禁用状态',
-            'navigation_list': ', '.join(daohang_liebiao),
-            'created_at': js.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'role_id': role.role_id,
+            'role_code': role.role_code,
+            'role_name': role.role_name,
+            'level_value': role.level_value,
+            'enabled_status': role.enabled_status,
+            'status_text': 'Enabled' if role.enabled_status == 234 else 'Disabled',
+            'navigation_list': ', '.join(navigation_list),
+            'created_at': role.created_at.strftime('%Y-%m-%d %H:%M:%S'),
         })
     
-    return JsonResponse({'code': 0, 'msg': '', 'count': zongshu, 'data': data_list})
+    return JsonResponse({'code': 0, 'msg': '', 'count': total, 'data': data_list})
 
 
 @require_surveyor
 @require_http_methods(["POST"])
 def role_create(request):
-    """角色创建"""
+    """Role creation"""
     try:
-        role_code = request.POST.get('juese_daima', '').strip()
-        role_name = request.POST.get('juese_mingcheng', '').strip()
-        level_value = request.POST.get('dengji_shuzhi', '888')
-        navigation_id_list = request.POST.getlist('daohang_id_list[]')
+        role_code = request.POST.get('role_code', '').strip()
+        role_name = request.POST.get('role_name', '').strip()
+        level_value = request.POST.get('level_value', '888')
+        navigation_id_list = request.POST.getlist('navigation_id_list[]')
         
-        if not juese_daima or not juese_mingcheng:
+        if not role_code or not role_name:
             return JsonResponse({
-                'status_code': 'shuju_buquan',
-                'message': '必填数据不完整'
+                'status_code': 'incomplete_data',
+                'message': 'Required data incomplete'
             })
         
-        if Role.objects.filter(role_code=juese_daima).exists():
+        if Role.objects.filter(role_code=role_code).exists():
             return JsonResponse({
-                'status_code': 'daima_chongfu',
-                'message': '角色代码已存在'
+                'status_code': 'code_duplicate',
+                'message': 'Role code already exists'
             })
         
         role = Role.objects.create(
-            role_code=juese_daima,
-            role_name=juese_mingcheng,
-            level_value=int(dengji_shuzhi),
+            role_code=role_code,
+            role_name=role_name,
+            level_value=int(level_value),
             enabled_status=234
         )
         
         if navigation_id_list:
-            navigation_set = Navigation.objects.filter(daohang_bianhao__in=navigation_id_list)
-            juese.navigation_relation.set(navigation_set)
+            navigation_set = Navigation.objects.filter(navigation_id__in=navigation_id_list)
+            role.navigation_relation.set(navigation_set)
         
         return JsonResponse({
-            'status_code': 'chuangjian_chenggong',
-            'message': '角色创建成功'
+            'status_code': 'create_success',
+            'message': 'Role created successfully'
         })
         
     except Exception as exception:
         return JsonResponse({
-            'status_code': 'chuangjian_shibai',
-            'message': f'创建失败: {str(exception)}'
+            'status_code': 'create_failed',
+            'message': f'Creation failed: {str(exception)}'
         })
 
 
 @require_surveyor
 @require_http_methods(["POST"])
-def role_update(request, juese_bianhao):
-    """角色修改"""
+def role_update(request, role_id):
+    """Role update"""
     try:
-        role = get_object_or_404(Role, role_id=juese_bianhao)
+        role = get_object_or_404(Role, role_id=role_id)
         
-        role_name = request.POST.get('juese_mingcheng', '').strip()
-        level_value = request.POST.get('dengji_shuzhi', '888')
-        navigation_id_list = request.POST.getlist('daohang_id_list[]')
-        enabled_status = request.POST.get('qiyong_zhuangtai', '234')
+        role_name = request.POST.get('role_name', '').strip()
+        level_value = request.POST.get('level_value', '888')
+        navigation_id_list = request.POST.getlist('navigation_id_list[]')
+        enabled_status = request.POST.get('enabled_status', '234')
         
-        juese.role_name = juese_mingcheng
-        juese.level_value = int(dengji_shuzhi)
-        juese.enabled_status = int(qiyong_zhuangtai)
-        juese.save()
+        role.role_name = role_name
+        role.level_value = int(level_value)
+        role.enabled_status = int(enabled_status)
+        role.save()
         
         if navigation_id_list:
-            navigation_set = Navigation.objects.filter(daohang_bianhao__in=navigation_id_list)
-            juese.navigation_relation.set(navigation_set)
+            navigation_set = Navigation.objects.filter(navigation_id__in=navigation_id_list)
+            role.navigation_relation.set(navigation_set)
         
         return JsonResponse({
-            'status_code': 'xiugai_chenggong',
-            'message': '角色修改成功'
+            'status_code': 'update_success',
+            'message': 'Role updated successfully'
         })
         
     except Exception as exception:
         return JsonResponse({
-            'status_code': 'xiugai_shibai',
-            'message': f'修改失败: {str(exception)}'
+            'status_code': 'update_failed',
+            'message': f'Update failed: {str(exception)}'
         })
 
 
 @require_surveyor
 @require_http_methods(["POST"])
-def role_delete(request, juese_bianhao):
-    """角色删除"""
+def role_delete(request, role_id):
+    """Role deletion"""
     try:
-        role = get_object_or_404(Role, role_id=juese_bianhao)
-        juese.delete()
+        role = get_object_or_404(Role, role_id=role_id)
+        role.delete()
         return JsonResponse({
-            'status_code': 'shanchu_chenggong',
-            'message': '角色删除成功'
+            'status_code': 'delete_success',
+            'message': 'Role deleted successfully'
         })
         
     except Exception as exception:
         return JsonResponse({
-            'status_code': 'shanchu_shibai',
-            'message': f'删除失败: {str(exception)}'
+            'status_code': 'delete_failed',
+            'message': f'Deletion failed: {str(exception)}'
         })
 
 
 @require_surveyor
 def navigation_list(request):
-    """导航列表页面"""
-    return render(request, 'daohang/liebiao.html')
+    """Navigation list page"""
+    return render(request, 'navigation/list.html')
 
 
 @require_surveyor
 def navigation_datalist(request):
-    """导航数据流（树形）"""
-    navigation_set = Navigation.objects.all().order_by('paixu_haoma')
+    """Navigation data list (tree structure)"""
+    navigation_set = Navigation.objects.all().order_by('sort_order')
     
     data_list = []
-    navigation_dict = {dh.navigation_id: dh for nav in navigation_set}
+    navigation_dict = {nav.navigation_id: nav for nav in navigation_set}
     
-    for daohang in navigation_set:
-        if not daohang.parent_navigation:
-            data_list.append(goujian_navigation_treeju(daohang, navigation_dict))
+    for nav in navigation_set:
+        if not nav.parent_navigation:
+            data_list.append(build_navigation_data(nav, navigation_dict))
     
     return JsonResponse({'code': 0, 'msg': '', 'data': data_list})
 
 
-def build_navigation_data(daohang, navigation_dict):
-    """构建导航数据"""
+def build_navigation_data(nav, navigation_dict):
+    """Build navigation data"""
     node = {
-        'navigation_id': daohang.navigation_id,
-        'navigation_code': daohang.navigation_code,
-        'navigation_title': daohang.navigation_title,
-        'type_choice': daohang.type_choice,
-        'parent_id': daohang.parent_navigation.navigation_id if daohang.parent_navigation else None,
-        'route_path': daohang.route_path or '',
-        'icon_style': daohang.icon_style or '',
-        'sort_order': daohang.sort_order,
-        'display_status': daohang.display_status,
-        'status_text': '显示状态' if daohang.display_status == 145 else '隐藏状态',
-        'created_at': daohang.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'navigation_id': nav.navigation_id,
+        'navigation_code': nav.navigation_code,
+        'navigation_title': nav.navigation_title,
+        'type_choice': nav.type_choice,
+        'parent_id': nav.parent_navigation.navigation_id if nav.parent_navigation else None,
+        'route_path': nav.route_path or '',
+        'icon_style': nav.icon_style or '',
+        'sort_order': nav.sort_order,
+        'display_status': nav.display_status,
+        'status_text': 'Visible' if nav.display_status == 145 else 'Hidden',
+        'created_at': nav.created_at.strftime('%Y-%m-%d %H:%M:%S'),
         'children': []
     }
     
-    for nav in navigation_dict.values():
-        if dh.parent_navigation and dh.parent_navigation.navigation_id == daohang.navigation_id:
-            node['children'].append(goujian_navigation_treeju(dh, navigation_dict))
+    for child in navigation_dict.values():
+        if child.parent_navigation and child.parent_navigation.navigation_id == nav.navigation_id:
+            node['children'].append(build_navigation_data(child, navigation_dict))
     
-    return jiedian
+    return node
 
 
 @require_surveyor
 @require_http_methods(["POST"])
 def navigation_create(request):
-    """导航创建"""
+    """Navigation creation"""
     try:
-        navigation_code = request.POST.get('daohang_bianma', '').strip()
-        navigation_title = request.POST.get('daohang_biaoti', '').strip()
-        type_choice = request.POST.get('leixing_xuanze', 'caidian')
-        parent_id = request.POST.get('fuji_bianhao', '')
-        route_path = request.POST.get('luyou_dizhi', '').strip()
-        icon_style = request.POST.get('tubiao_yangshi', '').strip()
-        sort_order = request.POST.get('paixu_haoma', '0')
+        navigation_code = request.POST.get('navigation_code', '').strip()
+        navigation_title = request.POST.get('navigation_title', '').strip()
+        type_choice = request.POST.get('type_choice', 'caidian')
+        parent_id = request.POST.get('parent_id', '')
+        route_path = request.POST.get('route_path', '').strip()
+        icon_style = request.POST.get('icon_style', '').strip()
+        sort_order = request.POST.get('sort_order', '0')
         
-        if not daohang_bianma or not daohang_biaoti:
+        if not navigation_code or not navigation_title:
             return JsonResponse({
-                'status_code': 'shuju_buquan',
-                'message': '必填数据不完整'
+                'status_code': 'incomplete_data',
+                'message': 'Required data incomplete'
             })
         
-        if Navigation.objects.filter(navigation_code=daohang_bianma).exists():
+        if Navigation.objects.filter(navigation_code=navigation_code).exists():
             return JsonResponse({
-                'status_code': 'bianma_chongfu',
-                'message': '导航编码已存在'
+                'status_code': 'code_duplicate',
+                'message': 'Navigation code already exists'
             })
         
         navigation = Navigation.objects.create(
-            navigation_code=daohang_bianma,
-            navigation_title=daohang_biaoti,
-            type_choice=leixing_xuanze,
-            route_path=luyou_dizhi,
-            icon_style=tubiao_yangshi,
-            sort_order=int(paixu_haoma),
+            navigation_code=navigation_code,
+            navigation_title=navigation_title,
+            type_choice=type_choice,
+            route_path=route_path,
+            icon_style=icon_style,
+            sort_order=int(sort_order),
             display_status=145
         )
         
-        if fuji_bianhao:
-            fuji = Navigation.objects.get(navigation_id=int(fuji_bianhao))
-            daohang.parent_navigation = fuji
-            daohang.save()
+        if parent_id:
+            parent = Navigation.objects.get(navigation_id=int(parent_id))
+            navigation.parent_navigation = parent
+            navigation.save()
         
         return JsonResponse({
-            'status_code': 'chuangjian_chenggong',
-            'message': '导航创建成功'
+            'status_code': 'create_success',
+            'message': 'Navigation created successfully'
         })
         
     except Exception as exception:
         return JsonResponse({
-            'status_code': 'chuangjian_shibai',
-            'message': f'创建失败: {str(exception)}'
+            'status_code': 'create_failed',
+            'message': f'Creation failed: {str(exception)}'
         })
 
 
 @require_surveyor
 @require_http_methods(["POST"])
-def navigation_update(request, daohang_bianhao):
-    """导航修改"""
+def navigation_update(request, navigation_id):
+    """Navigation update"""
     try:
-        navigation = get_object_or_404(Navigation, navigation_id=daohang_bianhao)
+        navigation = get_object_or_404(Navigation, navigation_id=navigation_id)
         
-        navigation_title = request.POST.get('daohang_biaoti', '').strip()
-        type_choice = request.POST.get('leixing_xuanze', 'caidian')
-        parent_id = request.POST.get('fuji_bianhao', '')
-        route_path = request.POST.get('luyou_dizhi', '').strip()
-        icon_style = request.POST.get('tubiao_yangshi', '').strip()
-        sort_order = request.POST.get('paixu_haoma', '0')
-        display_status = request.POST.get('xianshi_zhuangtai', '145')
+        navigation_title = request.POST.get('navigation_title', '').strip()
+        type_choice = request.POST.get('type_choice', 'caidian')
+        parent_id = request.POST.get('parent_id', '')
+        route_path = request.POST.get('route_path', '').strip()
+        icon_style = request.POST.get('icon_style', '').strip()
+        sort_order = request.POST.get('sort_order', '0')
+        display_status = request.POST.get('display_status', '145')
         
-        daohang.navigation_title = daohang_biaoti
-        daohang.type_choice = leixing_xuanze
-        daohang.route_path = luyou_dizhi
-        daohang.icon_style = tubiao_yangshi
-        daohang.sort_order = int(paixu_haoma)
-        daohang.display_status = int(xianshi_zhuangtai)
+        navigation.navigation_title = navigation_title
+        navigation.type_choice = type_choice
+        navigation.route_path = route_path
+        navigation.icon_style = icon_style
+        navigation.sort_order = int(sort_order)
+        navigation.display_status = int(display_status)
         
-        if fuji_bianhao:
-            fuji = Navigation.objects.get(navigation_id=int(fuji_bianhao))
-            daohang.parent_navigation = fuji
+        if parent_id:
+            parent = Navigation.objects.get(navigation_id=int(parent_id))
+            navigation.parent_navigation = parent
         else:
-            daohang.parent_navigation = None
+            navigation.parent_navigation = None
         
-        daohang.save()
+        navigation.save()
         
         return JsonResponse({
-            'status_code': 'xiugai_chenggong',
-            'message': '导航修改成功'
+            'status_code': 'update_success',
+            'message': 'Navigation updated successfully'
         })
         
     except Exception as exception:
         return JsonResponse({
-            'status_code': 'xiugai_shibai',
-            'message': f'修改失败: {str(exception)}'
+            'status_code': 'update_failed',
+            'message': f'Update failed: {str(exception)}'
         })
 
 
 @require_surveyor
 @require_http_methods(["POST"])
-def navigation_delete(request, daohang_bianhao):
-    """导航删除"""
+def navigation_delete(request, navigation_id):
+    """Navigation deletion"""
     try:
-        navigation = get_object_or_404(Navigation, navigation_id=daohang_bianhao)
+        navigation = get_object_or_404(Navigation, navigation_id=navigation_id)
         
-        if daohang.child_navigation.exists():
+        if navigation.child_navigation.exists():
             return JsonResponse({
-                'status_code': 'you_zinode',
-                'message': '存在子节点，无法删除'
+                'status_code': 'has_children',
+                'message': 'Has child nodes, cannot delete'
             })
         
-        daohang.delete()
+        navigation.delete()
         return JsonResponse({
-            'status_code': 'shanchu_chenggong',
-            'message': '导航删除成功'
+            'status_code': 'delete_success',
+            'message': 'Navigation deleted successfully'
         })
         
     except Exception as exception:
         return JsonResponse({
-            'status_code': 'shanchu_shibai',
-            'message': f'删除失败: {str(exception)}'
+            'status_code': 'delete_failed',
+            'message': f'Deletion failed: {str(exception)}'
         })
 
 
 @require_surveyor
 def get_role_menu(request):
-    """获取角色目录"""
-    role_set = Role.objects.filter(enabled_status=234).order_by('dengji_shuzhi')
+    """Get role menu"""
+    role_set = Role.objects.filter(enabled_status=234).order_by('level_value')
     menu = [{
-        'id': js.role_id,
-        'name': js.role_name,
-        'code': js.role_code
+        'id': role.role_id,
+        'name': role.role_name,
+        'code': role.role_code
     } for role in role_set]
-    return JsonResponse({'status_code': 'chenggong', 'mulu': menu})
+    return JsonResponse({'status_code': 'success', 'menu': menu})
 
 
 @require_surveyor
 def get_navigation_menu(request):
-    """获取导航目录"""
-    navigation_set = Navigation.objects.filter(display_status=145).order_by('paixu_haoma')
+    """Get navigation menu"""
+    navigation_set = Navigation.objects.filter(display_status=145).order_by('sort_order')
     menu = []
     for nav in navigation_set:
-        mulu.append({
-            'id': dh.navigation_id,
-            'title': dh.navigation_title,
-            'code': dh.navigation_code,
-            'parent_id': dh.parent_navigation.navigation_id if dh.parent_navigation else None
+        menu.append({
+            'id': nav.navigation_id,
+            'title': nav.navigation_title,
+            'code': nav.navigation_code,
+            'parent_id': nav.parent_navigation.navigation_id if nav.parent_navigation else None
         })
-    return JsonResponse({'status_code': 'chenggong', 'mulu': menu})
+    return JsonResponse({'status_code': 'success', 'menu': menu})

@@ -2,31 +2,31 @@ from django.urls import path
 from kuangcang import views
 
 urlpatterns = [
-    path('denglu/xianshi/', views.login_display, name='denglu_xianshi'),
-    path('denglu/tijiao/', views.login_submit, name='denglu_tijiao'),
-    path('denglu/likakai/', views.login_logout, name='denglu_likakai'),
-    path('denglu/yanzhengma/', views.login_captcha, name='denglu_yanzhengma'),
+    path('login/display/', views.login_display, name='login_display'),
+    path('login/submit/', views.login_submit, name='login_submit'),
+    path('login/logout/', views.login_logout, name='login_logout'),
+    path('login/captcha/', views.login_captcha, name='login_captcha'),
     
-    path('zhongxin/', views.center_display, name='zhongxin_xianshi'),
+    path('center/', views.center_display, name='center_display'),
     
-    path('kanche/liebiao/', views.surveyor_list, name='kanche_liebiao'),
-    path('kanche/shujuliu/', views.surveyor_datalist, name='kanche_shujuliu'),
-    path('kanche/chuangjian/', views.surveyor_create, name='kanche_chuangjian'),
-    path('kanche/xiugai/<int:surveyor_id>/', views.surveyor_update, name='kanche_xiugai'),
-    path('kanche/shanchu/<int:surveyor_id>/', views.surveyor_delete, name='kanche_shanchu'),
+    path('surveyor/list/', views.surveyor_list, name='surveyor_list'),
+    path('surveyor/datalist/', views.surveyor_datalist, name='surveyor_datalist'),
+    path('surveyor/create/', views.surveyor_create, name='surveyor_create'),
+    path('surveyor/update/<int:surveyor_id>/', views.surveyor_update, name='surveyor_update'),
+    path('surveyor/delete/<int:surveyor_id>/', views.surveyor_delete, name='surveyor_delete'),
     
-    path('juese/liebiao/', views.role_list, name='juese_liebiao'),
-    path('juese/shujuliu/', views.role_datalist, name='juese_shujuliu'),
-    path('juese/chuangjian/', views.role_create, name='juese_chuangjian'),
-    path('juese/xiugai/<int:role_id>/', views.role_update, name='juese_xiugai'),
-    path('juese/shanchu/<int:role_id>/', views.role_delete, name='juese_shanchu'),
+    path('role/list/', views.role_list, name='role_list'),
+    path('role/datalist/', views.role_datalist, name='role_datalist'),
+    path('role/create/', views.role_create, name='role_create'),
+    path('role/update/<int:role_id>/', views.role_update, name='role_update'),
+    path('role/delete/<int:role_id>/', views.role_delete, name='role_delete'),
     
-    path('daohang/liebiao/', views.navigation_list, name='daohang_liebiao'),
-    path('daohang/shujuliu/', views.navigation_datalist, name='daohang_shujuliu'),
-    path('daohang/chuangjian/', views.navigation_create, name='daohang_chuangjian'),
-    path('daohang/xiugai/<int:navigation_id>/', views.navigation_update, name='daohang_xiugai'),
-    path('daohang/shanchu/<int:navigation_id>/', views.navigation_delete, name='daohang_shanchu'),
+    path('navigation/list/', views.navigation_list, name='navigation_list'),
+    path('navigation/datalist/', views.navigation_datalist, name='navigation_datalist'),
+    path('navigation/create/', views.navigation_create, name='navigation_create'),
+    path('navigation/update/<int:navigation_id>/', views.navigation_update, name='navigation_update'),
+    path('navigation/delete/<int:navigation_id>/', views.navigation_delete, name='navigation_delete'),
     
-    path('api/juese/mulu/', views.get_role_menu, name='huoqu_juese_mulu'),
-    path('api/daohang/mulu/', views.get_navigation_menu, name='huoqu_daohang_mulu'),
+    path('api/role/menu/', views.get_role_menu, name='get_role_menu'),
+    path('api/navigation/menu/', views.get_navigation_menu, name='get_navigation_menu'),
 ]

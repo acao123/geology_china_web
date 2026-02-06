@@ -4,134 +4,134 @@ import math
 import hashlib
 
 
-class YanzhengmaShengchengqi:
-    """验证码生成器 - 使用数学几何图案"""
+class CaptchaGenerator:
+    """Captcha generator - uses mathematical geometric patterns"""
     
-    def __init__(self, kuandu=220, gaodu=90):
-        self.kuandu = kuandu
-        self.gaodu = gaodu
-        self.zifu_ku = 'ACDEFGHJKMNPQRSTUVWXY3456789'
+    def __init__(self, width=220, height=90):
+        self.width = width
+        self.height = height
+        self.char_set = 'ACDEFGHJKMNPQRSTUVWXY3456789'
     
-    def shengcheng_suiji_zifu(self, changdu=4):
-        """生成随机字符 - 使用数学序列"""
-        jieguozhi = []
-        zhongzi = int(hashlib.md5(str(random.random()).encode()).hexdigest()[:8], 16)
+    def generate_random_chars(self, length=4):
+        """Generate random characters - uses mathematical sequences"""
+        result = []
+        seed = int(hashlib.md5(str(random.random()).encode()).hexdigest()[:8], 16)
         
-        for i in range(changdu):
-            suanfa_zhi = (zhongzi * (i + 1) * 7919 + 104729) % len(self.zifu_ku)
-            jieguozhi.append(self.zifu_ku[suanfa_zhi])
-            zhongzi = (zhongzi * 31 + ord(jieguozhi[-1])) % 2147483647
+        for i in range(length):
+            algorithm_value = (seed * (i + 1) * 7919 + 104729) % len(self.char_set)
+            result.append(self.char_set[algorithm_value])
+            seed = (seed * 31 + ord(result[-1])) % 2147483647
         
-        return ''.join(jieguozhi)
+        return ''.join(result)
     
-    def chuangjian_beijing(self):
-        """创建背景 - 使用渐变算法"""
-        tupian = Image.new('RGB', (self.kuandu, self.gaodu), (255, 255, 255))
-        huabi = ImageDraw.Draw(tupian)
+    def create_background(self):
+        """Create background - uses gradient algorithm"""
+        image = Image.new('RGB', (self.width, self.height), (255, 255, 255))
+        canvas = ImageDraw.Draw(image)
         
-        for y_zhi in range(self.gaodu):
-            jisuanzhi = int(225 + (y_zhi / self.gaodu) * 25)
-            pianyi_r = random.randint(-8, 8)
-            pianyi_g = random.randint(-5, 5)
-            pianyi_b = random.randint(-6, 6)
+        for y_value in range(self.height):
+            calc_value = int(225 + (y_value / self.height) * 25)
+            offset_r = random.randint(-8, 8)
+            offset_g = random.randint(-5, 5)
+            offset_b = random.randint(-6, 6)
             
-            yanse_r = max(210, min(255, jisuanzhi + pianyi_r))
-            yanse_g = max(210, min(255, jisuanzhi + pianyi_g))
-            yanse_b = max(210, min(255, jisuanzhi + pianyi_b))
+            color_r = max(210, min(255, calc_value + offset_r))
+            color_g = max(210, min(255, calc_value + offset_g))
+            color_b = max(210, min(255, calc_value + offset_b))
             
-            huabi.line([(0, y_zhi), (self.kuandu, y_zhi)], 
-                      fill=(yanse_r, yanse_g, yanse_b))
+            canvas.line([(0, y_value), (self.width, y_value)], 
+                      fill=(color_r, color_g, color_b))
         
-        return tupian, huabi
+        return image, canvas
     
-    def tianjia_ganraosu(self, huabi):
-        """添加干扰素 - 使用几何图案"""
-        dian_shuliang = random.randint(150, 250)
-        for _ in range(dian_shuliang):
-            x_zuobiao = random.randint(0, self.kuandu)
-            y_zuobiao = random.randint(0, self.gaodu)
-            bandian = random.randint(1, 3)
+    def add_noise(self, canvas):
+        """Add noise - uses geometric patterns"""
+        dot_count = random.randint(150, 250)
+        for _ in range(dot_count):
+            x_coord = random.randint(0, self.width)
+            y_coord = random.randint(0, self.height)
+            radius = random.randint(1, 3)
             
-            yanse_qiangdu = random.randint(120, 210)
-            huabi.ellipse(
-                [x_zuobiao - bandian, y_zuobiao - bandian, 
-                 x_zuobiao + bandian, y_zuobiao + bandian],
-                fill=(yanse_qiangdu, yanse_qiangdu + 8, yanse_qiangdu - 8)
+            color_intensity = random.randint(120, 210)
+            canvas.ellipse(
+                [x_coord - radius, y_coord - radius, 
+                 x_coord + radius, y_coord + radius],
+                fill=(color_intensity, color_intensity + 8, color_intensity - 8)
             )
         
-        quxian_shuliang = random.randint(4, 7)
-        for quxian_id in range(quxian_shuliang):
-            jiaodu_pianyi = random.uniform(0, math.pi * 2)
-            zhenfu = random.randint(10, 25)
-            pinlv = random.uniform(0.018, 0.045)
+        curve_count = random.randint(4, 7)
+        for curve_id in range(curve_count):
+            angle_offset = random.uniform(0, math.pi * 2)
+            amplitude = random.randint(10, 25)
+            frequency = random.uniform(0.018, 0.045)
             
-            dian_liebie = []
-            for x_bu in range(0, self.kuandu, 3):
-                y_jisuan = int(
-                    self.gaodu / 2 + 
-                    zhenfu * math.sin(jiaodu_pianyi + x_bu * pinlv) * 
-                    math.cos(x_bu * pinlv * 0.3) +
+            point_list = []
+            for x_step in range(0, self.width, 3):
+                y_calc = int(
+                    self.height / 2 + 
+                    amplitude * math.sin(angle_offset + x_step * frequency) * 
+                    math.cos(x_step * frequency * 0.3) +
                     random.randint(-4, 4)
                 )
-                dian_liebie.append((x_bu, y_jisuan))
+                point_list.append((x_step, y_calc))
             
-            if len(dian_liebie) > 1:
-                yanse_zhi = random.randint(170, 230)
-                huabi.line(dian_liebie, 
-                          fill=(yanse_zhi - 15, yanse_zhi, yanse_zhi - 20),
+            if len(point_list) > 1:
+                color_value = random.randint(170, 230)
+                canvas.line(point_list, 
+                          fill=(color_value - 15, color_value, color_value - 20),
                           width=random.randint(1, 2))
     
-    def huizhi_zifu(self, huabi, zifu_chuang):
-        """绘制字符 - 自定义布局"""
-        zihao_daxiao = 46
+    def draw_chars(self, canvas, char_string):
+        """Draw characters - custom layout"""
+        font_size = 46
         try:
-            ziti = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", zihao_daxiao)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
         except:
-            ziti = ImageFont.load_default()
+            font = ImageFont.load_default()
         
-        zifu_jianju = self.kuandu // len(zifu_chuang)
+        char_spacing = self.width // len(char_string)
         
-        for suoyin, zifu in enumerate(zifu_chuang):
-            yanse_r = random.randint(25, 85)
-            yanse_g = random.randint(30, 95)
-            yanse_b = random.randint(35, 100)
+        for index, char in enumerate(char_string):
+            color_r = random.randint(25, 85)
+            color_g = random.randint(30, 95)
+            color_b = random.randint(35, 100)
             
-            x_weizhi = zifu_jianju * suoyin + random.randint(12, 25)
-            y_weizhi = random.randint(12, 28)
+            x_position = char_spacing * index + random.randint(12, 25)
+            y_position = random.randint(12, 28)
             
-            xuanzhuan_jiaodu = random.uniform(-12, 12)
+            rotation_angle = random.uniform(-12, 12)
             
-            huabi.text((x_weizhi, y_weizhi), zifu,
-                      fill=(yanse_r, yanse_g, yanse_b), font=ziti)
+            canvas.text((x_position, y_position), char,
+                      fill=(color_r, color_g, color_b), font=font)
         
-        return zifu_chuang
+        return char_string
     
-    def yingyong_lvjing(self, tupian):
-        """应用滤镜"""
-        tupian = tupian.filter(ImageFilter.SMOOTH_MORE)
-        return tupian
+    def apply_filter(self, image):
+        """Apply filter"""
+        image = image.filter(ImageFilter.SMOOTH_MORE)
+        return image
     
-    def zhizuo_yanzhengma(self):
-        """制作验证码"""
-        zifu_chuang = self.shengcheng_suiji_zifu()
-        tupian, huabi = self.chuangjian_beijing()
-        self.tianjia_ganraosu(huabi)
-        self.huizhi_zifu(huabi, zifu_chuang)
-        tupian = self.yingyong_lvjing(tupian)
+    def make_captcha(self):
+        """Make captcha"""
+        char_string = self.generate_random_chars()
+        image, canvas = self.create_background()
+        self.add_noise(canvas)
+        self.draw_chars(canvas, char_string)
+        image = self.apply_filter(image)
         
-        return tupian, zifu_chuang
+        return image, char_string
     
-    def daochu_zijie(self):
-        """导出字节流"""
+    def export_bytes(self):
+        """Export byte stream"""
         from io import BytesIO
-        tupian, zifu_chuang = self.zhizuo_yanzhengma()
-        huanchong = BytesIO()
-        tupian.save(huanchong, format='PNG', optimize=True, quality=95)
-        huanchong.seek(0)
-        return huanchong.getvalue(), zifu_chuang
+        image, char_string = self.make_captcha()
+        buffer = BytesIO()
+        image.save(buffer, format='PNG', optimize=True, quality=95)
+        buffer.seek(0)
+        return buffer.getvalue(), char_string
 
 
-def chuangjian_yanzhengma():
-    """创建验证码"""
-    shengchengqi = YanzhengmaShengchengqi()
-    return shengchengqi.daochu_zijie()
+def create_captcha():
+    """Create captcha"""
+    generator = CaptchaGenerator()
+    return generator.export_bytes()
