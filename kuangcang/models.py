@@ -4,174 +4,181 @@ import secrets
 import base64
 
 
-def yanzheng_jiami(yuanshi_mima):
-    """验证加密 - 独特的三重哈希算法"""
-    yansui_1 = secrets.token_urlsafe(32)
-    yansui_2 = secrets.token_urlsafe(16)
+def verify_encrypt(raw_password):
+    """Password encryption - unique triple hash algorithm"""
+    salt_1 = secrets.token_urlsafe(32)
+    salt_2 = secrets.token_urlsafe(16)
     
-    hunhe_1 = hashlib.sha3_384(f"{yuanshi_mima}{yansui_1}".encode()).hexdigest()
-    hunhe_2 = hashlib.blake2b(f"{hunhe_1}{yansui_2}".encode(), digest_size=32).hexdigest()
-    hunhe_3 = hashlib.sha512(f"{hunhe_2}{yansui_1[:8]}".encode()).hexdigest()
+    hash_1 = hashlib.sha3_384(f"{raw_password}{salt_1}".encode()).hexdigest()
+    hash_2 = hashlib.blake2b(f"{hash_1}{salt_2}".encode(), digest_size=32).hexdigest()
+    hash_3 = hashlib.sha512(f"{hash_2}{salt_1[:8]}".encode()).hexdigest()
     
-    zuhe = f"{yansui_1}#{yansui_2}#{hunhe_3}"
-    return base64.urlsafe_b64encode(zuhe.encode()).decode()
+    combination = f"{salt_1}#{salt_2}#{hash_3}"
+    return base64.urlsafe_b64encode(combination.encode()).decode()
 
 
-def yanzheng_duibi(yuanshi_mima, jiami_wenben):
-    """验证对比 - 三重验证"""
+def verify_compare(raw_password, encrypted_text):
+    """Password verification - triple verification"""
     try:
-        jiemi = base64.urlsafe_b64decode(jiami_wenben.encode()).decode()
-        bufeng = jiemi.split('#')
-        if len(bufeng) != 3:
+        decrypt = base64.urlsafe_b64decode(encrypted_text.encode()).decode()
+        parts = decrypt.split('#')
+        if len(parts) != 3:
             return False
         
-        yansui_1, yansui_2, cunchu_hash = bufeng
+        salt_1, salt_2, stored_hash = parts
         
-        hunhe_1 = hashlib.sha3_384(f"{yuanshi_mima}{yansui_1}".encode()).hexdigest()
-        hunhe_2 = hashlib.blake2b(f"{hunhe_1}{yansui_2}".encode(), digest_size=32).hexdigest()
-        hunhe_3 = hashlib.sha512(f"{hunhe_2}{yansui_1[:8]}".encode()).hexdigest()
+        hash_1 = hashlib.sha3_384(f"{raw_password}{salt_1}".encode()).hexdigest()
+        hash_2 = hashlib.blake2b(f"{hash_1}{salt_2}".encode(), digest_size=32).hexdigest()
+        hash_3 = hashlib.sha512(f"{hash_2}{salt_1[:8]}".encode()).hexdigest()
         
-        return hunhe_3 == cunchu_hash
+        return hash_3 == stored_hash
     except:
         return False
 
 
-class Kanche(models.Model):
-    """勘察员模型"""
-    HUODONG_ZHUANGTAI = ((168, '活跃勘察'), (37, '休眠封存'))
+class Surveyor(models.Model):
+    """Surveyor model"""
+    ACTIVITY_STATUS = ((168, 'Active Surveyor'), (37, 'Archived'))
     
-    kanche_bianhao = models.AutoField(primary_key=True, db_column='kc_id')
-    denglu_biaoshi = models.CharField(max_length=120, unique=True, db_column='dl_bs')
-    mingcheng_xianshi = models.CharField(max_length=200, db_column='mc_xs')
-    jiami_mima = models.CharField(max_length=800, db_column='jm_mm')
-    lianxi_dianhua = models.CharField(max_length=40, null=True, blank=True, db_column='lx_dh')
-    dianzi_youjian = models.CharField(max_length=200, null=True, blank=True, db_column='dz_yj')
-    touxiang_lujing = models.CharField(max_length=800, null=True, blank=True, db_column='tx_lj')
-    huodong_zhuangtai = models.IntegerField(choices=HUODONG_ZHUANGTAI, default=168, db_column='hd_zt')
-    juese_guanlian = models.ManyToManyField('Juese', blank=True, related_name='kanche_jh', db_column='js_gl')
-    zuijin_denglu = models.DateTimeField(null=True, blank=True, db_column='zj_dl')
-    chuangjian_shijian = models.DateTimeField(auto_now_add=True, db_column='cj_sj')
-    xiugai_shijian = models.DateTimeField(auto_now=True, db_column='xg_sj')
-    beizhu_xinxi = models.TextField(null=True, blank=True, db_column='bz_xx')
+    surveyor_id = models.AutoField(primary_key=True, db_column='kc_id')
+    login_identifier = models.CharField(max_length=120, unique=True, db_column='dl_bs')
+    display_name = models.CharField(max_length=200, db_column='mc_xs')
+    encrypted_password = models.CharField(max_length=800, db_column='jm_mm')
+    contact_phone = models.CharField(max_length=40, null=True, blank=True, db_column='lx_dh')
+    email_address = models.CharField(max_length=200, null=True, blank=True, db_column='dz_yj')
+    avatar_path = models.CharField(max_length=800, null=True, blank=True, db_column='tx_lj')
+    activity_status = models.IntegerField(choices=ACTIVITY_STATUS, default=168, db_column='hd_zt')
+    role_relation = models.ManyToManyField('Role', blank=True, related_name='surveyor_set', db_column='js_gl')
+    last_login = models.DateTimeField(null=True, blank=True, db_column='zj_dl')
+    created_at = models.DateTimeField(auto_now_add=True, db_column='cj_sj')
+    updated_at = models.DateTimeField(auto_now=True, db_column='xg_sj')
+    notes = models.TextField(null=True, blank=True, db_column='bz_xx')
     
     class Meta:
         db_table = 'kuang_kanche'
-        ordering = ['-chuangjian_shijian']
+        ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['denglu_biaoshi'], name='idx_kc_denglu'),
-            models.Index(fields=['huodong_zhuangtai'], name='idx_kc_zhuangtai'),
+            models.Index(fields=['login_identifier'], name='idx_kc_denglu'),
+            models.Index(fields=['activity_status'], name='idx_kc_zhuangtai'),
         ]
     
     def __str__(self):
-        return f"勘察:{self.mingcheng_xianshi}[{self.denglu_biaoshi}]"
+        return f"Surveyor:{self.display_name}[{self.login_identifier}]"
     
-    def shezhi_mima(self, yuanshi_mima):
-        """设置密码"""
-        self.jiami_mima = yanzheng_jiami(yuanshi_mima)
+    def set_password(self, raw_password):
+        """Set password"""
+        self.encrypted_password = verify_encrypt(raw_password)
     
-    def yanzheng_mima(self, yuanshi_mima):
-        """验证密码"""
-        return yanzheng_duibi(yuanshi_mima, self.jiami_mima)
+    def verify_password(self, raw_password):
+        """Verify password"""
+        return verify_compare(raw_password, self.encrypted_password)
     
-    def shifou_huodong(self):
-        """是否活跃"""
-        return self.huodong_zhuangtai == 168
+    def is_active(self):
+        """Check if active"""
+        return self.activity_status == 168
 
 
-class Juese(models.Model):
-    """角色模型"""
-    QIYONG_ZHUANGTAI = ((234, '启用状态'), (56, '禁用状态'))
+class Role(models.Model):
+    """Role model"""
+    ENABLED_STATUS = ((234, 'Enabled'), (56, 'Disabled'))
     
-    juese_bianhao = models.AutoField(primary_key=True, db_column='js_id')
-    juese_daima = models.CharField(max_length=120, unique=True, db_column='js_dm')
-    juese_mingcheng = models.CharField(max_length=200, db_column='js_mc')
-    dengji_shuzhi = models.IntegerField(default=888, db_column='dj_sz')
-    qiyong_zhuangtai = models.IntegerField(choices=QIYONG_ZHUANGTAI, default=234, db_column='qy_zt')
-    daohang_guanlian = models.ManyToManyField('Daohang', blank=True, related_name='juese_jh', db_column='dh_gl')
-    chuangjian_shijian = models.DateTimeField(auto_now_add=True, db_column='cj_sj')
-    xiugai_shijian = models.DateTimeField(auto_now=True, db_column='xg_sj')
-    beizhu_xinxi = models.TextField(null=True, blank=True, db_column='bz_xx')
+    role_id = models.AutoField(primary_key=True, db_column='js_id')
+    role_code = models.CharField(max_length=120, unique=True, db_column='js_dm')
+    role_name = models.CharField(max_length=200, db_column='js_mc')
+    level_value = models.IntegerField(default=888, db_column='dj_sz')
+    enabled_status = models.IntegerField(choices=ENABLED_STATUS, default=234, db_column='qy_zt')
+    navigation_relation = models.ManyToManyField('Navigation', blank=True, related_name='role_set', db_column='dh_gl')
+    created_at = models.DateTimeField(auto_now_add=True, db_column='cj_sj')
+    updated_at = models.DateTimeField(auto_now=True, db_column='xg_sj')
+    notes = models.TextField(null=True, blank=True, db_column='bz_xx')
     
     class Meta:
         db_table = 'kuang_juese'
-        ordering = ['dengji_shuzhi', '-chuangjian_shijian']
+        ordering = ['level_value', '-created_at']
         indexes = [
-            models.Index(fields=['juese_daima'], name='idx_js_daima'),
-            models.Index(fields=['dengji_shuzhi'], name='idx_js_dengji'),
+            models.Index(fields=['role_code'], name='idx_js_daima'),
+            models.Index(fields=['level_value'], name='idx_js_dengji'),
         ]
     
     def __str__(self):
-        return f"角色:{self.juese_mingcheng}({self.juese_daima})"
+        return f"Role:{self.role_name}({self.role_code})"
     
-    def shifou_qiyong(self):
-        """是否启用"""
-        return self.qiyong_zhuangtai == 234
+    def is_enabled(self):
+        """Check if enabled"""
+        return self.enabled_status == 234
 
 
-class Daohang(models.Model):
-    """导航模型"""
-    LEIXING_XUANZE = (('mulu', '目录类型'), ('caidian', '菜单类型'), ('anniu', '按钮类型'))
-    XIANSHI_ZHUANGTAI = ((145, '显示状态'), (48, '隐藏状态'))
+class Navigation(models.Model):
+    """Navigation model"""
+    TYPE_CHOICES = (('mulu', 'Directory'), ('caidian', 'Menu'), ('anniu', 'Button'))
+    DISPLAY_STATUS = ((145, 'Visible'), (48, 'Hidden'))
     
-    daohang_bianhao = models.AutoField(primary_key=True, db_column='dh_id')
-    daohang_bianma = models.CharField(max_length=120, unique=True, db_column='dh_bm')
-    daohang_biaoti = models.CharField(max_length=200, db_column='dh_bt')
-    leixing_xuanze = models.CharField(max_length=40, choices=LEIXING_XUANZE, default='caidian', db_column='lx_xz')
-    fuji_daohang = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True,
-                                    related_name='ziji_daohang', db_column='fj_dh')
-    luyou_dizhi = models.CharField(max_length=800, null=True, blank=True, db_column='ly_dz')
-    tubiao_yangshi = models.CharField(max_length=200, null=True, blank=True, db_column='tb_ys')
-    paixu_haoma = models.IntegerField(default=0, db_column='px_hm')
-    xianshi_zhuangtai = models.IntegerField(choices=XIANSHI_ZHUANGTAI, default=145, db_column='xs_zt')
-    chuangjian_shijian = models.DateTimeField(auto_now_add=True, db_column='cj_sj')
-    xiugai_shijian = models.DateTimeField(auto_now=True, db_column='xg_sj')
-    beizhu_xinxi = models.TextField(null=True, blank=True, db_column='bz_xx')
+    navigation_id = models.AutoField(primary_key=True, db_column='dh_id')
+    navigation_code = models.CharField(max_length=120, unique=True, db_column='dh_bm')
+    navigation_title = models.CharField(max_length=200, db_column='dh_bt')
+    type_choice = models.CharField(max_length=40, choices=TYPE_CHOICES, default='caidian', db_column='lx_xz')
+    parent_navigation = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True,
+                                    related_name='child_navigation', db_column='fj_dh')
+    route_path = models.CharField(max_length=800, null=True, blank=True, db_column='ly_dz')
+    icon_style = models.CharField(max_length=200, null=True, blank=True, db_column='tb_ys')
+    sort_order = models.IntegerField(default=0, db_column='px_hm')
+    display_status = models.IntegerField(choices=DISPLAY_STATUS, default=145, db_column='xs_zt')
+    created_at = models.DateTimeField(auto_now_add=True, db_column='cj_sj')
+    updated_at = models.DateTimeField(auto_now=True, db_column='xg_sj')
+    notes = models.TextField(null=True, blank=True, db_column='bz_xx')
     
     class Meta:
         db_table = 'kuang_daohang'
-        ordering = ['paixu_haoma', 'daohang_bianhao']
+        ordering = ['sort_order', 'navigation_id']
         indexes = [
-            models.Index(fields=['daohang_bianma'], name='idx_dh_bianma'),
-            models.Index(fields=['paixu_haoma'], name='idx_dh_paixu'),
+            models.Index(fields=['navigation_code'], name='idx_dh_bianma'),
+            models.Index(fields=['sort_order'], name='idx_dh_paixu'),
         ]
     
     def __str__(self):
-        return f"导航:{self.daohang_biaoti}[{self.daohang_bianma}]"
+        return f"Navigation:{self.navigation_title}[{self.navigation_code}]"
     
-    def shifou_xianshi(self):
-        """是否显示"""
-        return self.xianshi_zhuangtai == 145
+    def is_visible(self):
+        """Check if visible"""
+        return self.display_status == 145
     
-    def huoqu_ziji(self):
-        """获取子集"""
-        return Daohang.objects.filter(fuji_daohang=self, xianshi_zhuangtai=145).order_by('paixu_haoma')
+    def get_children(self):
+        """Get children"""
+        return Navigation.objects.filter(parent_navigation=self, display_status=145).order_by('sort_order')
     
-    def goujian_lujing(self):
-        """构建路径"""
-        if self.fuji_daohang:
-            return f"{self.fuji_daohang.goujian_lujing()}▶{self.daohang_biaoti}"
-        return self.daohang_biaoti
+    def build_path(self):
+        """Build path"""
+        if self.parent_navigation:
+            return f"{self.parent_navigation.build_path()}▶{self.navigation_title}"
+        return self.navigation_title
 
 
-class Caozuo(models.Model):
-    """操作日志模型"""
-    caozuo_bianhao = models.AutoField(primary_key=True, db_column='cz_id')
-    kanche_yinyong = models.ForeignKey(Kanche, on_delete=models.SET_NULL, null=True, db_column='kc_yy')
-    mokuai_mingcheng = models.CharField(max_length=200, db_column='mk_mc')
-    caozuo_leixing = models.CharField(max_length=120, db_column='cz_lx')
-    caozuo_miaoshu = models.TextField(db_column='cz_ms')
-    qingqiu_fangshi = models.CharField(max_length=20, db_column='qq_fs')
-    qingqiu_lujing = models.CharField(max_length=800, db_column='qq_lj')
-    qingqiu_ip = models.CharField(max_length=120, db_column='qq_ip')
-    caozuo_shijian = models.DateTimeField(auto_now_add=True, db_column='cz_sj')
+class Operation(models.Model):
+    """Operation log model"""
+    operation_id = models.AutoField(primary_key=True, db_column='cz_id')
+    surveyor_ref = models.ForeignKey(Surveyor, on_delete=models.SET_NULL, null=True, db_column='kc_yy')
+    module_name = models.CharField(max_length=200, db_column='mk_mc')
+    operation_type = models.CharField(max_length=120, db_column='cz_lx')
+    operation_desc = models.TextField(db_column='cz_ms')
+    request_method = models.CharField(max_length=20, db_column='qq_fs')
+    request_path = models.CharField(max_length=800, db_column='qq_lj')
+    request_ip = models.CharField(max_length=120, db_column='qq_ip')
+    operation_time = models.DateTimeField(auto_now_add=True, db_column='cz_sj')
     
     class Meta:
         db_table = 'kuang_caozuo'
-        ordering = ['-caozuo_shijian']
+        ordering = ['-operation_time']
         indexes = [
-            models.Index(fields=['-caozuo_shijian'], name='idx_cz_shijian'),
+            models.Index(fields=['-operation_time'], name='idx_cz_shijian'),
         ]
     
     def __str__(self):
-        return f"操作:{self.mokuai_mingcheng}-{self.caozuo_leixing}"
+        return f"Operation:{self.module_name}-{self.operation_type}"
+
+
+# Backward compatibility aliases
+Kanche = Surveyor
+Juese = Role
+Daohang = Navigation
+Caozuo = Operation
 
